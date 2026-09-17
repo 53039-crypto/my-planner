@@ -4,6 +4,12 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "*/5 * * * *"
+  push:
+    branches:
+      - main
+    paths:
+      - "github-sender/**"
+      - ".github/workflows/send-reminders.yml"
 
 jobs:
   send-reminders:
