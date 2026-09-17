@@ -1,12 +1,44 @@
 <!doctype html>
-<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>My Planner</title><link rel="manifest" href="./manifest.webmanifest">
-<style>body{font-family:system-ui;margin:0;background:#f3f4f6;color:#111827}.wrap{max-width:900px;margin:auto;padding:20px}.card{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 2px 10px #0001}.row{display:flex;gap:8px;flex-wrap:wrap}input,select,button{padding:10px;border-radius:10px;border:1px solid #ccc;font-size:16px}button{background:#111827;color:#fff;border:0;cursor:pointer}.secondary{background:#e5e7eb;color:#111827}.hidden{display:none}.activity{padding:10px;border:1px solid #eee;border-radius:10px;margin:8px 0}.ok{color:#166534}.err{color:#b91c1c}</style>
-</head><body><div class="wrap"><h1>📚 My Planner</h1>
-<section id="auth" class="card"><h2>เข้าสู่ระบบ</h2><div class="row"><input id="name" placeholder="ชื่อ"><input id="email" type="email" placeholder="อีเมล"><input id="password" type="password" placeholder="รหัสผ่าน"></div><p><button id="signup">สมัครสมาชิก</button> <button id="login">เข้าสู่ระบบ</button> <button id="reset" class="secondary">ลืมรหัสผ่าน</button></p><p id="authMsg"></p></section>
-<section id="app" class="card hidden"><p>👋 <b id="userName"></b> <button id="logout" class="secondary">ออกจากระบบ</button></p><hr>
-<h2>เพิ่มกิจกรรม</h2><div class="row"><select id="day"><option>จันทร์</option><option>อังคาร</option><option>พุธ</option><option>พฤหัสบดี</option><option>ศุกร์</option></select><input id="time" type="time"><input id="activity" placeholder="กิจกรรม"><button id="save">บันทึก</button></div>
-<p><label><input id="enabled" type="checkbox" checked> 🔔 เตือนกิจกรรมนี้</label></p>
-<div class="row"><button id="notify">🔔 เปิดการแจ้งเตือน</button><button id="testNotify" class="secondary">🧪 ทดสอบแจ้งเตือน</button></div>
-<p id="msg"></p><h2>กิจกรรมของฉัน</h2><div id="list"></div></section></div>
-<script type="module" src="./app.js"></script></body></html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>My Planner</title>
+  <style>
+    body{font-family:system-ui;margin:0;background:#f3f4f6;color:#111827}.wrap{max-width:900px;margin:auto;padding:20px}.card{background:#fff;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 2px 10px #0001}.row{display:flex;gap:8px;flex-wrap:wrap}input,select,button{padding:10px;border-radius:10px;border:1px solid #ccc;font-size:16px}button{background:#111827;color:#fff;border:0;cursor:pointer}.secondary{background:#e5e7eb;color:#111827}.hidden{display:none}.activity{padding:10px;border:1px solid #eee;border-radius:10px;margin:8px 0}.hint{font-size:14px;color:#4b5563}.ok{color:#166534}.err{color:#b91c1c}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📚 My Planner</h1>
+  <section id="auth" class="card">
+    <h2>เข้าสู่ระบบ</h2>
+    <div class="row"><input id="name" placeholder="ชื่อ"><input id="email" type="email" placeholder="อีเมล"><input id="password" type="password" placeholder="รหัสผ่าน"></div>
+    <p><button id="signup">สมัครสมาชิก</button> <button id="login">เข้าสู่ระบบ</button> <button id="reset" class="secondary">ลืมรหัสผ่าน</button></p>
+    <p id="authMsg"></p>
+  </section>
+
+  <section id="app" class="card hidden">
+    <p>👋 <b id="userName"></b> <button id="logout" class="secondary">ออกจากระบบ</button></p><hr>
+    <h2>เพิ่มกิจกรรม</h2>
+    <div class="row">
+      <select id="day"><option>จันทร์</option><option>อังคาร</option><option>พุธ</option><option>พฤหัสบดี</option><option>ศุกร์</option><option>เสาร์</option><option>อาทิตย์</option></select>
+      <input id="time" type="time"><input id="activity" placeholder="กิจกรรม"><button id="save">บันทึก</button>
+    </div>
+    <p><label><input id="enabled" type="checkbox" checked> 🔔 เตือนกิจกรรมนี้</label></p>
+
+    <h2>การแจ้งเตือน</h2>
+    <div class="row">
+      <button id="notify">🔔 เปิดการแจ้งเตือนบนมือถือเครื่องนี้</button>
+      <button id="testNotify" class="secondary">🧪 ทดสอบแจ้งเตือนทันที</button>
+    </div>
+    <p class="hint">ไม่ต้องติดตั้งแอป เปิดเว็บนี้ด้วย Chrome แล้วกด “เปิดการแจ้งเตือน” เพียงครั้งเดียว</p>
+    <p id="msg"></p>
+
+    <h2>กิจกรรมของฉัน</h2><div id="list"></div>
+  </section>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
