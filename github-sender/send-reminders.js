@@ -1,6 +1,5 @@
 const admin = require("firebase-admin");
 
-// ---------- 1) Firebase Admin ----------
 const raw = (process.env.FIREBASE_SERVICE_ACCOUNT_JSON || "").trim();
 if (!raw) throw new Error("Missing FIREBASE_SERVICE_ACCOUNT_JSON GitHub secret");
 
@@ -14,11 +13,8 @@ try {
 admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 const db = admin.firestore();
 const messaging = admin.messaging();
-
-// workflow_dispatch exists only when Run workflow is pressed manually.
 const manualTest = process.env.GITHUB_EVENT_NAME === "workflow_dispatch";
 
-// ---------- 2) Bangkok time ----------
 const DAY_MAP = {
   Mon: "จันทร์", Tue: "อังคาร", Wed: "พุธ", Thu: "พฤหัสบดี",
   Fri: "ศุกร์", Sat: "เสาร์", Sun: "อาทิตย์",
@@ -48,14 +44,26 @@ function maskToken(token) {
   return token.length > 18 ? `${token.slice(0, 8)}...${token.slice(-6)}` : "(token present)";
 }
 
-// ---------- 3) Send push to devices ----------
 async function sendToUser(uid, title, body) {
   const snap = await db.collection("users").doc(uid).collection("devices").get();
-  const deviceDocs = snap.docs.filter((d) => typeof d.data()?.token === "string" && d.data().token.trim());
+  const docsWithTokens = snap.docs.filter((d) => typeof d.data()?.token === "string" && d.data().token.trim());
 
-  console.log(`[FCM] user=${uid} deviceDocs=${snap.size} validTokens=${deviceDocs.length}`);
+  const uniqueByToken = new Map();
+  const duplicateDocs = [];
+  for (const d of docsWithTokens) {
+    const token = d.data().token.trim();
+    if (uniqueByToken.has(token)) duplicateDocs.push(d.ref.delete());
+    else uniqueByToken.set(token, d);
+  }
+  if (duplicateDocs.length) {
+    await Promise.all(duplicateDocs);
+    console.log(`[FCM] removed duplicate device docs=${duplicateDocs.length} user=${uid}`);
+  }
+
+  const deviceDocs = [...uniqueByToken.values()];
+  console.log(`[FCM] user=${uid} deviceDocs=${snap.size} uniqueTokens=${deviceDocs.length}`);
   if (!deviceDocs.length) {
-    console.warn(`[FCM] NO TOKEN for user=${uid}. Open the PWA on Android, allow notifications, and make sure the token is saved under users/${uid}/devices.`);
+    console.warn(`[FCM] NO TOKEN for user=${uid}. Open the website in Chrome, log in, and press the notification button.`);
     return { success: 0, failure: 0 };
   }
 
@@ -72,13 +80,7 @@ async function sendToUser(uid, title, body) {
       tokens,
       notification: { title, body },
       webpush: {
-        notification: {
-          title,
-          body,
-          icon: "/icons/icon-192.png",
-          badge: "/icons/icon-192.png",
-          requireInteraction: false,
-        },
+        notification: { title, body, requireInteraction: false },
         fcmOptions: { link: "https://my-planner-test.netlify.app/" },
       },
     });
@@ -102,7 +104,6 @@ async function sendToUser(uid, title, body) {
         code === "messaging/registration-token-not-registered" ||
         code === "messaging/invalid-registration-token"
       ) {
-        console.warn(`[FCM] deleting invalid device document ${group[j].ref.path}`);
         cleanup.push(group[j].ref.delete());
       }
     });
@@ -113,16 +114,14 @@ async function sendToUser(uid, title, body) {
   return { success, failure };
 }
 
-// ---------- 4) Read users without Collection Group index ----------
 async function getUsers() {
   const users = await db.collection("users").get();
   console.log(`[DB] users=${users.size}`);
   return users.docs;
 }
 
-// ---------- 5) Manual notification test ----------
 async function runManualTest() {
-  console.log("=== MANUAL FCM TEST ===");
+  console.log("=== MANUAL WEB PUSH TEST ===");
   const users = await getUsers();
 
   let usersWithTokens = 0;
@@ -133,7 +132,7 @@ async function runManualTest() {
     const result = await sendToUser(
       user.id,
       "My Planner 🔔",
-      "ทดสอบการแจ้งเตือนสำเร็จจาก GitHub Actions"
+      "ทดสอบ Web Push สำเร็จจาก My Planner"
     );
     if (result.success + result.failure > 0) usersWithTokens++;
     sent += result.success;
@@ -141,14 +140,8 @@ async function runManualTest() {
   }
 
   console.log(`=== TEST RESULT users=${users.length} usersWithTokens=${usersWithTokens} sent=${sent} failed=${failed} ===`);
-
-  if (!users.length) console.warn("[TEST] Firestore collection 'users' is empty.");
-  else if (!usersWithTokens) console.warn("[TEST] No FCM device tokens were found for any user.");
-  else if (!sent) console.error("[TEST] Tokens were found, but FCM did not deliver any message successfully. Check FAILED lines above.");
-  else console.log(`[TEST] FCM accepted ${sent} notification(s). Check the Android device now.`);
 }
 
-// ---------- 6) Scheduled reminders ----------
 async function runScheduled() {
   const now = parts();
   const current = Number(now.hour) * 60 + Number(now.minute);
