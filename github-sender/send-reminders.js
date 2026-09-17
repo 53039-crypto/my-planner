@@ -33,9 +33,26 @@ function parts(date = new Date()) {
   };
 }
 
+function normalizeDay(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^วัน/, "");
+}
+
+function normalizeTime(value) {
+  const s = String(value || "").trim();
+  const m = s.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (!Number.isInteger(h) || !Number.isInteger(min) || h < 0 || h > 23 || min < 0 || min > 59) return null;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
 function minutes(hm) {
-  if (!/^\d{1,2}:\d{2}$/.test(hm || "")) return NaN;
-  const [h, m] = hm.split(":").map(Number);
+  const n = normalizeTime(hm);
+  if (!n) return NaN;
+  const [h, m] = n.split(":").map(Number);
   return h * 60 + m;
 }
 
@@ -103,9 +120,7 @@ async function sendToUser(uid, title, body) {
       if (
         code === "messaging/registration-token-not-registered" ||
         code === "messaging/invalid-registration-token"
-      ) {
-        cleanup.push(group[j].ref.delete());
-      }
+      ) cleanup.push(group[j].ref.delete());
     });
 
     if (cleanup.length) await Promise.all(cleanup);
@@ -123,17 +138,10 @@ async function getUsers() {
 async function runManualTest() {
   console.log("=== MANUAL WEB PUSH TEST ===");
   const users = await getUsers();
-
-  let usersWithTokens = 0;
-  let sent = 0;
-  let failed = 0;
+  let usersWithTokens = 0, sent = 0, failed = 0;
 
   for (const user of users) {
-    const result = await sendToUser(
-      user.id,
-      "My Planner 🔔",
-      "ทดสอบ Web Push สำเร็จจาก My Planner"
-    );
+    const result = await sendToUser(user.id, "My Planner 🔔", "ทดสอบ Web Push สำเร็จจาก My Planner");
     if (result.success + result.failure > 0) usersWithTokens++;
     sent += result.success;
     failed += result.failure;
@@ -146,39 +154,60 @@ async function runScheduled() {
   const now = parts();
   const current = Number(now.hour) * 60 + Number(now.minute);
   const today = `${now.year}-${now.month}-${now.day}`;
-  const day = DAY_MAP[now.weekday];
-  const minTime = Math.max(0, current - 10);
+  const expectedDay = DAY_MAP[now.weekday];
+
+  // GitHub scheduled workflows can be delayed. Look back 35 minutes so reminders are not missed.
+  const LOOKBACK_MINUTES = 35;
+  const minTime = Math.max(0, current - LOOKBACK_MINUTES);
   const maxTime = current;
 
-  console.log(`=== SCHEDULED Bangkok ${day} ${now.hour}:${now.minute} window=${minTime}-${maxTime} ===`);
+  console.log(`=== SCHEDULED Bangkok ${expectedDay} ${now.hour}:${now.minute} window=${minTime}-${maxTime} lookback=${LOOKBACK_MINUTES}m ===`);
 
   const users = await getUsers();
-  let activities = 0;
-  let matched = 0;
-  let sent = 0;
-  let failed = 0;
+  let activities = 0, matched = 0, sent = 0, failed = 0;
 
   for (const user of users) {
     const activitySnap = await user.ref.collection("activities").get();
     activities += activitySnap.size;
 
     for (const d of activitySnap.docs) {
-      const a = d.data();
-      if (!a || a.enabled !== true || a.day !== day || typeof a.time !== "string") continue;
+      const a = d.data() || {};
+      const activityDay = normalizeDay(a.day);
+      const activityTime = normalizeTime(a.time);
+      const enabled = a.enabled !== false; // old records without enabled are treated as enabled
+      const t = minutes(activityTime);
+      const key = activityTime ? `${today}_${activityTime}` : null;
 
-      const t = minutes(a.time);
-      if (!Number.isFinite(t) || t < minTime || t > maxTime) continue;
+      console.log(`[ACTIVITY] user=${user.id} id=${d.id} day=${JSON.stringify(a.day)} normalizedDay=${activityDay} time=${JSON.stringify(a.time)} normalizedTime=${activityTime} enabled=${a.enabled} effectiveEnabled=${enabled} lastNotifiedKey=${a.lastNotifiedKey || "(none)"}`);
 
-      const key = `${today}_${a.time}`;
-      if (a.lastNotifiedKey === key) continue;
+      if (!enabled) {
+        console.log(`[SKIP] ${d.id} reason=disabled`);
+        continue;
+      }
+      if (activityDay !== expectedDay) {
+        console.log(`[SKIP] ${d.id} reason=day expected=${expectedDay} actual=${activityDay}`);
+        continue;
+      }
+      if (!activityTime || !Number.isFinite(t)) {
+        console.log(`[SKIP] ${d.id} reason=invalid-time`);
+        continue;
+      }
+      if (t < minTime || t > maxTime) {
+        console.log(`[SKIP] ${d.id} reason=time activityMinutes=${t} window=${minTime}-${maxTime}`);
+        continue;
+      }
+      if (a.lastNotifiedKey === key) {
+        console.log(`[SKIP] ${d.id} reason=already-notified key=${key}`);
+        continue;
+      }
 
       matched++;
-      console.log(`[MATCH] user=${user.id} activity=${a.activity || d.id} time=${a.time}`);
+      console.log(`[MATCH] user=${user.id} activity=${a.activity || d.id} time=${activityTime}`);
 
       const result = await sendToUser(
         user.id,
         "My Planner 🔔",
-        `${a.activity || "ถึงเวลากิจกรรมแล้ว"} · ${a.time}`
+        `${a.activity || "ถึงเวลากิจกรรมแล้ว"} · ${activityTime}`
       );
 
       sent += result.success;
