@@ -10,13 +10,6 @@ firebase.initializeApp({
   appId: "1:272413881684:web:6923f366bfaecc3a7204c1"
 });
 
-const messaging = firebase.messaging();
-
-messaging.onBackgroundMessage((payload) => {
-  self.registration.showNotification(
-    payload.notification?.title || "My Planner",
-    {
-      body: payload.notification?.body || "มีการแจ้งเตือนใหม่"
-    }
-  );
-});
+// Initializing Messaging here lets Firebase receive notification payloads
+// while the website is in the background or closed.
+firebase.messaging();
