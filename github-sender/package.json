@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "scripts": {
+    "send": "node send-reminders.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.6.0"
+  }
+}
