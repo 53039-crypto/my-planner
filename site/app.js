@@ -38,15 +38,29 @@ async function removeDuplicateTokenDocs(uid,token,keepId){
   if(jobs.length) await Promise.all(jobs);
 }
 
+async function ensureNotificationPermission(){
+  if(!window.isSecureContext) throw Error("การแจ้งเตือนต้องเปิดผ่าน HTTPS");
+  if(!("Notification" in window)) throw Error("เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน");
+
+  if(Notification.permission==="denied"){
+    throw Error("Chrome บล็อกการแจ้งเตือนเว็บนี้อยู่ ให้เปิดเมนูเว็บไซต์ > สิทธิ์/Permissions > การแจ้งเตือน/Notifications > อนุญาต/Allow แล้วกลับมากดอีกครั้ง");
+  }
+
+  if(Notification.permission!=="granted"){
+    const permission=await Notification.requestPermission();
+    if(permission==="denied"){
+      throw Error("การแจ้งเตือนถูกบล็อก ให้เปิดเมนูเว็บไซต์ > สิทธิ์/Permissions > การแจ้งเตือน/Notifications > อนุญาต/Allow");
+    }
+    if(permission!=="granted") throw Error("ยังไม่ได้อนุญาตการแจ้งเตือน");
+  }
+}
+
 async function ensureMessaging(){
   const u=auth.currentUser;
   if(!u) throw Error("กรุณาเข้าสู่ระบบก่อน");
-  if(!window.isSecureContext) throw Error("การแจ้งเตือนต้องเปิดผ่าน HTTPS");
-  if(!("Notification" in window)) throw Error("เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน");
   if(!(await isSupported())) throw Error("Chrome เครื่องนี้ไม่รองรับ Firebase Push");
 
-  const permission=await Notification.requestPermission();
-  if(permission!=="granted") throw Error("กรุณากดอนุญาตการแจ้งเตือนให้เว็บไซต์");
+  await ensureNotificationPermission();
 
   const registration=await registerMessagingWorker();
   messaging=getMessaging(app);
@@ -132,6 +146,11 @@ onAuthStateChanged(auth,u=>{
     $("app").classList.remove("hidden");
     $("userName").textContent=u.displayName||u.email;
     load(u);
+    if("Notification" in window){
+      if(Notification.permission==="granted") say("✅ Chrome อนุญาตการแจ้งเตือนแล้ว","msg");
+      else if(Notification.permission==="denied") say("⚠️ Chrome บล็อกการแจ้งเตือนเว็บนี้อยู่ กรุณาเปิดสิทธิ์ Notifications ของเว็บไซต์","msg");
+      else say("กด “🔔 เปิดการแจ้งเตือนบนมือถือเครื่องนี้” เพื่ออนุญาต Web Push","msg");
+    }
   }else{
     $("auth").classList.remove("hidden");
     $("app").classList.add("hidden");
