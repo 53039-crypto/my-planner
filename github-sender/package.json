@@ -1,9 +1,13 @@
 {
+  "name": "github-sender",
+  "version": "1.0.0",
   "private": true,
+  "description": "Sends Firebase Cloud Messaging reminders for My Planner via GitHub Actions",
+  "main": "send-reminders.js",
   "scripts": {
-    "send": "node send-reminders.js"
+    "start": "node send-reminders.js"
   },
   "dependencies": {
-    "firebase-admin": "^13.6.0"
+    "firebase-admin": "^12.6.0"
   }
 }
